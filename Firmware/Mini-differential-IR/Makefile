@@ -3,7 +3,7 @@ TARGET_CPU?= attiny85
 
 CXX= avr-g++
 LD= avr-gcc
-CPPFLAGS=
+CPPFLAGS= -DOUTPUT_DIGITAL_ONLY
 CFLAGS= -Wall -g -mmcu=$(TARGET_CPU) -Os -fpack-struct -fshort-enums
 CXXFLAGS=
 LDFLAGS=

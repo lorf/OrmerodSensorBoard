@@ -13,6 +13,11 @@
 // Version 5: increased maximum value of the pullup resistor we look for to 160K, to get reliable results with the 150K resistor in the test rig
 // Version 6: Don't enable pullup resistor on phototransistor input
 
+/*
+ * Defines:
+ *  * OUTPUT_DIGITAL_ONLY - disable analog output and short the boot time.
+ */
+
 #include "ecv.h"
 
 #ifdef __ECV__
@@ -120,7 +125,12 @@ IrData nearData, farData, offData;
 // General variables
 volatile uint16_t tickCounter = 0;					// counts system ticks, lower 2 bits also used for ADC/LED state
 uint16_t lastKickTicks = 0;							// when we last kicked the watchdog
+#ifdef OUTPUT_DIGITAL_ONLY
+bool digitalOutput = true;
+#else
 bool digitalOutput = false;
+#endif
+
 bool running = false;
 
 
@@ -302,6 +312,7 @@ writes(running; nearData; farData; offData; lastKickTicks; digitalOutput; volati
 	lastKickTicks = 0;
 	sei();
 	
+#ifndef OUTPUT_DIGITAL_ONLY
 	// Determine whether to provide a digital output or a 4-state output.
 	// We do this by checking to see whether the connected electronics provided a pullup resistor on the output.
 	// If a pullup resistor is detected, we provide a digital output, else we provide an analog output.
@@ -320,6 +331,7 @@ writes(running; nearData; farData; offData; lastKickTicks; digitalOutput; volati
 	// We are looking for a pullup resistor of no more than 75K on the output to indicate that we should use a digital output.
 	// DC 2014-08-04 we now look for no more than 160K, because on the Arduino Due the pullups are in the range 50K-150K.
 	digitalOutput = offData.sum + nearData.sum + farData.sum >= (3600UL * cyclesAveragedIR * 1024UL * 3u)/(160000UL + 3600UL);
+#endif
 	
 	// Change back to normal operation mode
 	ADMUX = (uint8_t)AdcPhototransistorChan;				// select input 1 = phototransistor, single ended mode
