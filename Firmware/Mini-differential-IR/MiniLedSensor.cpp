@@ -15,7 +15,9 @@
 
 /*
  * Defines:
- *  * OUTPUT_DIGITAL_ONLY - disable analog output and short the boot time.
+ *  * OUTPUT_DIGITAL_ONLY - disable analog output and short the boot time;
+ *  * OUTPUT_ACTIVE_LOW - output low level when triggered (i.e. act similar to
+ *    Normally Open switch). By default sensor outputs high level when triggered.
  */
 
 #include "ecv.h"
@@ -215,8 +217,13 @@ inline void SetOutputOff()
 writes(volatile)
 {
 	// We do this in 2 operations, each of which is atomic, so that we don't mess up what the ISR is doing with the LEDs.
+#ifdef OUTPUT_ACTIVE_LOW
+	PORTB |= BITVAL(PortBDuet10KOutputBit);
+	PORTB |= BITVAL(PortBDuet12KOutputBit);
+#else
 	PORTB &= ~BITVAL(PortBDuet10KOutputBit);
 	PORTB &= ~BITVAL(PortBDuet12KOutputBit);
+#endif
 }
 
 // Give a G31 reading of about 445 indicating we are approaching the trigger point
@@ -224,8 +231,13 @@ inline void SetOutputApproaching()
 writes(volatile)
 {
 	// We do this in 2 operations, each of which is atomic, so that we don't mess up what the ISR is doing with the LEDs.
+#ifdef OUTPUT_ACTIVE_LOW
+	PORTB |= BITVAL(PortBDuet10KOutputBit);
+	PORTB &= ~BITVAL(PortBDuet12KOutputBit);
+#else
 	PORTB &= ~BITVAL(PortBDuet10KOutputBit);
 	PORTB |= BITVAL(PortBDuet12KOutputBit);
+#endif
 }	
 
 // Give a G31 reading of about 578 indicating we are at/past the trigger point
@@ -233,8 +245,13 @@ inline void SetOutputOn()
 writes(volatile)
 {
 	// We do this in 2 operations, each of which is atomic, so that we don't mess up what the ISR is doing with the LEDs.
+#ifdef OUTPUT_ACTIVE_LOW
+	PORTB &= ~BITVAL(PortBDuet10KOutputBit);
+	PORTB |= BITVAL(PortBDuet12KOutputBit);
+#else
 	PORTB |= BITVAL(PortBDuet10KOutputBit);
 	PORTB &= ~BITVAL(PortBDuet12KOutputBit);
+#endif
 }
 
 // Give a G31 reading of about 1023 indicating that the sensor is saturating
@@ -242,8 +259,13 @@ inline void SetOutputSaturated()
 writes(volatile)
 {
 	// We do this in 2 operations, each of which is atomic, so that we don't mess up what the ISR is doing with the LEDs.
+#ifdef OUTPUT_ACTIVE_LOW
+	PORTB &= ~BITVAL(PortBDuet10KOutputBit);
+	PORTB &= ~BITVAL(PortBDuet12KOutputBit);
+#else
 	PORTB |= BITVAL(PortBDuet10KOutputBit);
 	PORTB |= BITVAL(PortBDuet12KOutputBit);
+#endif
 }
 
 // Get the tick counter from outside the ISR. As it's more than 8 bits long, we need to disable interrupts while fetching it.
