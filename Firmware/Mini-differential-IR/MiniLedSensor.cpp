@@ -12,17 +12,20 @@
 // Version 4: increased maximum value of the pullup resistor we look for to 150K, because it is higher on the Arduino Due
 // Version 5: increased maximum value of the pullup resistor we look for to 160K, to get reliable results with the 150K resistor in the test rig
 // Version 6: Don't enable pullup resistor on phototransistor input
-
-// Defines:
-//  * OUTPUT_DIGITAL_AND_PWM - disable 4-state output. Output digital signal on
-//    PB3 and output linear analog (PWM) signal for tuning on PB2. You will
-//    need to disconnect R5 for this to work. X1-1 external pin will provide
-//    digital output and You can measure voltage on ISP SCK pin. This setting
-//    also shortens the boot time;
+// Version 7: Added following defines:
+//  * OUTPUT_DIGITAL - disable 4-state output. Output digital signal on PB3 pin
+//    only. This setting also shortens the boot time
+//  * DEBUG_PWM - output linear analog (PWM) signal for tuning on PB2 pin. You
+//    will need to disconnect R5. You can measure voltage on ISP SCK pin.
+//    Requires OUTPUT_DIGITAL enabled. Cannot be used with DEBUG_UART enabled
+//  * DEBUG_UART - enable UART TX at 115200 8N1 on PB2 pin showing debug info.
+//    Disconnect R5 for normal output to work properly. Connect UART adapter RX
+//    pin to ISP SCK pin. Requires OUTPUT_DIGITAL enabled. Cannot be used with
+//    DEBUG_PWM enabled
 //  * OUTPUT_ACTIVE_LOW - output low level when triggered (i.e. act similar to
 //    Normally Open switch). By default sensor outputs high level when
-//    triggered.  If the OUTPUT_DIGITAL_AND_PWM is also enabled the PWM signal
-//    is still normal polarity.
+//    triggered. If the DEBUG_PWM is enabled, the PWM signal is still normal
+//    polarity
 
 #include "ecv.h"
 
@@ -35,10 +38,28 @@
 #pragma ECV noverifyincludefiles
 #endif
 
+#ifdef DEBUG_UART
+#ifndef OUTPUT_DIGITAL
+#error "DEBUG_UART cannot be used without OUTPUT_DIGITAL"
+#endif
+#ifdef DEBUG_PWM
+#error "DEBUG_UART cannot be used with DEBUG_PWM"
+#endif
+#endif
+
+#ifdef DEBUG_PWM
+#ifndef OUTPUT_DIGITAL
+#error "DEBUG_PWM cannot be used without OUTPUT_DIGITAL"
+#endif
+#endif
+
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <avr/eeprom.h>
 #include <avr/wdt.h>
+#ifdef DEBUG_UART
+#include "softuart.h"
+#endif
 
 #ifdef __ECV__
 #pragma ECV verifyincludefiles
@@ -70,14 +91,19 @@ const unsigned int PortBNearLedBit = 1;
 const unsigned int PortBFarLedBit = 0;
 const unsigned int PortBDuet10KOutputBit = 3;
 const unsigned int PortBDuet12KOutputBit = 2;
-#ifdef OUTPUT_DIGITAL_AND_PWM
+#ifdef DEBUG_UART
+const unsigned int uart_tx = 2;   // Pin for UART TX output
+#endif
+#ifdef DEBUG_PWM
 const unsigned int PortBPWMOutput = 2;   // Pin for PWM output
 #endif
 
 const uint8_t PortBUnusedBitMask = 0;
 
 // Approximate MPU frequency (8MHz internal oscillator)
+#ifndef F_CPU
 const uint32_t F_CPU = 8000000uL;
+#endif
 
 // IR parameters. These also allow us to receive a signal through the command input.
 const uint16_t interruptFreq = 8000;						// interrupt frequency. We run the IR sensor at one quarter of this, i.e. 2kHz
@@ -134,7 +160,7 @@ IrData nearData, farData, offData;
 // General variables
 volatile uint16_t tickCounter = 0;					// counts system ticks, lower 2 bits also used for ADC/LED state
 uint16_t lastKickTicks = 0;							// when we last kicked the watchdog
-#ifdef OUTPUT_DIGITAL_AND_PWM
+#ifdef OUTPUT_DIGITAL
 bool digitalOutput = true;
 #else
 bool digitalOutput = false;
@@ -196,7 +222,7 @@ post(nearData.invar(); farData.invar(); offData.invar())
 	++tickCounter;
 }
 
-#ifdef OUTPUT_DIGITAL_AND_PWM
+#ifdef DEBUG_PWM
 // Timer1 compare and overflow interrupts used to implement PWM on PB2
 #ifdef __ECV__
 void TIM1_COMPA_vect()
@@ -217,7 +243,7 @@ ISR(TIM1_OVF_vect)
 {
     PORTB |= BITVAL(PortBPWMOutput);
 }
-#endif /* OUTPUT_DIGITAL_AND_PWM */
+#endif /* DEBUG_PWM */
 
 #if 0	// unused at present
 
@@ -249,12 +275,12 @@ writes(volatile)
 	// We do this in 2 operations, each of which is atomic, so that we don't mess up what the ISR is doing with the LEDs.
 #ifdef OUTPUT_ACTIVE_LOW
 	PORTB |= BITVAL(PortBDuet10KOutputBit);
-#ifndef OUTPUT_DIGITAL_AND_PWM
+#ifndef OUTPUT_DIGITAL
 	PORTB |= BITVAL(PortBDuet12KOutputBit);
 #endif
 #else
 	PORTB &= ~BITVAL(PortBDuet10KOutputBit);
-#ifndef OUTPUT_DIGITAL_AND_PWM
+#ifndef OUTPUT_DIGITAL
 	PORTB &= ~BITVAL(PortBDuet12KOutputBit);
 #endif
 #endif
@@ -267,12 +293,12 @@ writes(volatile)
 	// We do this in 2 operations, each of which is atomic, so that we don't mess up what the ISR is doing with the LEDs.
 #ifdef OUTPUT_ACTIVE_LOW
 	PORTB |= BITVAL(PortBDuet10KOutputBit);
-#ifndef OUTPUT_DIGITAL_AND_PWM
+#ifndef OUTPUT_DIGITAL
 	PORTB &= ~BITVAL(PortBDuet12KOutputBit);
 #endif
 #else
 	PORTB &= ~BITVAL(PortBDuet10KOutputBit);
-#ifndef OUTPUT_DIGITAL_AND_PWM
+#ifndef OUTPUT_DIGITAL
 	PORTB |= BITVAL(PortBDuet12KOutputBit);
 #endif
 #endif
@@ -285,12 +311,12 @@ writes(volatile)
 	// We do this in 2 operations, each of which is atomic, so that we don't mess up what the ISR is doing with the LEDs.
 #ifdef OUTPUT_ACTIVE_LOW
 	PORTB &= ~BITVAL(PortBDuet10KOutputBit);
-#ifndef OUTPUT_DIGITAL_AND_PWM
+#ifndef OUTPUT_DIGITAL
 	PORTB |= BITVAL(PortBDuet12KOutputBit);
 #endif
 #else
 	PORTB |= BITVAL(PortBDuet10KOutputBit);
-#ifndef OUTPUT_DIGITAL_AND_PWM
+#ifndef OUTPUT_DIGITAL
 	PORTB &= ~BITVAL(PortBDuet12KOutputBit);
 #endif
 #endif
@@ -303,12 +329,12 @@ writes(volatile)
 	// We do this in 2 operations, each of which is atomic, so that we don't mess up what the ISR is doing with the LEDs.
 #ifdef OUTPUT_ACTIVE_LOW
 	PORTB &= ~BITVAL(PortBDuet10KOutputBit);
-#ifndef OUTPUT_DIGITAL_AND_PWM
+#ifndef OUTPUT_DIGITAL
 	PORTB &= ~BITVAL(PortBDuet12KOutputBit);
 #endif
 #else
 	PORTB |= BITVAL(PortBDuet10KOutputBit);
-#ifndef OUTPUT_DIGITAL_AND_PWM
+#ifndef OUTPUT_DIGITAL
 	PORTB |= BITVAL(PortBDuet12KOutputBit);
 #endif
 #endif
@@ -380,7 +406,7 @@ writes(running; nearData; farData; offData; lastKickTicks; digitalOutput; volati
 	lastKickTicks = 0;
 	sei();
 	
-#ifndef OUTPUT_DIGITAL_AND_PWM
+#ifndef OUTPUT_DIGITAL
 	// Determine whether to provide a digital output or a 4-state output.
 	// We do this by checking to see whether the connected electronics provided a pullup resistor on the output.
 	// If a pullup resistor is detected, we provide a digital output, else we provide an analog output.
@@ -399,7 +425,7 @@ writes(running; nearData; farData; offData; lastKickTicks; digitalOutput; volati
 	// We are looking for a pullup resistor of no more than 75K on the output to indicate that we should use a digital output.
 	// DC 2014-08-04 we now look for no more than 160K, because on the Arduino Due the pullups are in the range 50K-150K.
 	digitalOutput = offData.sum + nearData.sum + farData.sum >= (3600UL * cyclesAveragedIR * 1024UL * 3u)/(160000UL + 3600UL);
-#endif /* OUTPUT_DIGITAL_AND_PWM */
+#endif /* !OUTPUT_DIGITAL */
 	
 	// Change back to normal operation mode
 	ADMUX = (uint8_t)AdcPhototransistorChan;				// select input 1 = phototransistor, single ended mode
@@ -415,7 +441,7 @@ writes(running; nearData; farData; offData; lastKickTicks; digitalOutput; volati
 		--flashesToGo;
 	}
 
-#ifdef OUTPUT_DIGITAL_AND_PWM
+#ifdef DEBUG_PWM
     // For debugging/tuning purposes we generate analog (PWM) output on PB2
     // pin. PB2 has no PWM drive, so we use Timer1 with OCR1A and compare and
     // overflow interrupts, that set the pin state as needed.
@@ -427,7 +453,7 @@ writes(running; nearData; farData; offData; lastKickTicks; digitalOutput; volati
     TCCR1 |= BITVAL(CTC1) | BITVAL(PWM1A) | BITVAL(CS12); // | BITVAL(CTC1) | 3<<COM1A0 | 7<<CS10;
     TIMSK |= BITVAL(OCIE1A) | BITVAL(TOIE1);
     sei();
-#endif /* OUTPUT_DIGITAL_AND_PWM */
+#endif /* DEBUG_PWM */
 
 	// Clear out the data and start collecting data from the phototransistor
 	nearData.init();
@@ -447,14 +473,32 @@ writes(running; nearData; farData; offData; lastKickTicks; digitalOutput; volati
 		uint16_t locOffSum = offData.sum;
 		sei();
 
-#ifdef OUTPUT_DIGITAL_AND_PWM
+#ifdef DEBUG_PWM
         // Set PWM value. locFarSum and locNearSum range is:
         //   0 .. (1023 * cyclesAveragedIR)
         OCR1A = ((locFarSum <= locOffSum && locFarSum <= locOffSum) ?
                 0 : ((locNearSum > locFarSum) ?
                     locNearSum : locFarSum) - locOffSum) / (4 * cyclesAveragedIR);
 #endif
-			
+#ifdef DEBUG_UART
+        static bool debug_show = true;
+        // Display values 4 times a second
+        if ((GetTicks() % (interruptFreq / 4)) == 0) {
+            if (debug_show) {
+                uint16_t lns = (locNearSum > locOffSum) ? locNearSum - locOffSum : 0;
+                uint16_t lfs = (locFarSum > locOffSum) ? locFarSum - locOffSum : 0;
+
+                uartFormatP(PSTR("N=%u, F=%u, O=%u.  (%u >= %u && %u > %u) == %S\r\n"),
+                        locNearSum, locFarSum, locOffSum,
+                        lfs, farThreshold, lns, lfs,
+                        (lfs >= farThreshold && lns > lfs) ? PSTR("true") : PSTR("false"));
+            }
+            debug_show = false;
+        } else {
+            debug_show = true;
+        }
+#endif
+
 		if (locNearSum >= saturatedThreshold || locFarSum >= saturatedThreshold)
 		{
 			SetOutputSaturated();							// sensor is saturating, so set the output full on to indicate this

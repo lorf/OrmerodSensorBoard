@@ -2,8 +2,14 @@ PROG?=	MiniLedSensor
 TARGET_CPU?= attiny85
 
 CXX= avr-g++
+CC=	avr-gcc
 LD= avr-gcc
-CPPFLAGS= -DOUTPUT_DIGITAL_AND_PWM -DOUTPUT_ACTIVE_LOW
+CPPFLAGS+=	-DOUTPUT_DIGITAL
+CPPFLAGS+=	-DOUTPUT_ACTIVE_LOW
+CPPFLAGS+=	-DDEBUG_UART
+#CPPFLAGS+=	-DDEBUG_PWM
+CPPFLAGS+=	-DBAUD_RATE=115200
+CPPFLAGS+=	-DF_CPU=8000000uL
 CFLAGS= -Wall -g -mmcu=$(TARGET_CPU) -Os -fpack-struct -fshort-enums
 CXXFLAGS=
 LDFLAGS=
@@ -26,10 +32,16 @@ AVRDUDE_CMD:= $(AVRDUDE) -c $(AVRDUDE_PROGRAMMER) -p $(AVRDUDE_TARGET) $(addpref
 
 all: $(PROG).hex $(PROG).lss size
 
+$(PROG).elf: BBUart.o uart_send.o uart_print.o uart_format.o MiniLedSensor.o
+
 %.o: %.cpp
 	$(CXX) $(CFLAGS) $(CXXFLAGS) $(CPPFLAGS) -c $<
+%.o: %.c
+	$(CC) $(CFLAGS) $(CPPFLAGS) -c $<
+%.o: %.S
+	$(CC) $(CFLAGS) $(CPPFLAGS) -c $<
 %.elf: %.o
-	$(LD) $(CFLAGS) $(LDFLAGS) -o $@ $<
+	$(LD) $(CFLAGS) $(LDFLAGS) -o $@ $^
 %.hex: %.elf
 	$(OBJCOPY) -O ihex -R .eeprom -R .fuse -R .lock -R .signature $< $@
 %.eep: %.elf
@@ -47,4 +59,4 @@ upload: $(PROG).hex size
 	$(AVRDUDE_CMD) -U flash:w:$(PROG).hex:i
 
 clean:
-	rm -f $(PROG).o $(PROG).elf $(PROG).hex $(PROG).eep $(PROG).lss
+	rm -f $(PROG).o $(PROG).elf $(PROG).hex $(PROG).eep $(PROG).lss *.o
