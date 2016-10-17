@@ -15,17 +15,12 @@
 // Version 7: Added following defines:
 //  * OUTPUT_DIGITAL - disable 4-state output. Output digital signal on PB3 pin
 //    only. This setting also shortens the boot time
-//  * DEBUG_PWM - output linear analog (PWM) signal for tuning on PB2 pin. You
-//    will need to disconnect R5. You can measure voltage on ISP SCK pin.
-//    Requires OUTPUT_DIGITAL enabled. Cannot be used with DEBUG_UART enabled
 //  * DEBUG_UART - enable UART TX at 115200 8N1 on PB2 pin showing debug info.
 //    Disconnect R5 for normal output to work properly. Connect UART adapter RX
-//    pin to ISP SCK pin. Requires OUTPUT_DIGITAL enabled. Cannot be used with
-//    DEBUG_PWM enabled
+//    pin to ISP SCK pin. Requires OUTPUT_DIGITAL enabled.
 //  * OUTPUT_ACTIVE_LOW - output low level when triggered (i.e. act similar to
 //    Normally Open switch). By default sensor outputs high level when
-//    triggered. If the DEBUG_PWM is enabled, the PWM signal is still normal
-//    polarity
+//    triggered.
 
 #include "ecv.h"
 
@@ -41,15 +36,6 @@
 #ifdef DEBUG_UART
 #ifndef OUTPUT_DIGITAL
 #error "DEBUG_UART cannot be used without OUTPUT_DIGITAL"
-#endif
-#ifdef DEBUG_PWM
-#error "DEBUG_UART cannot be used with DEBUG_PWM"
-#endif
-#endif
-
-#ifdef DEBUG_PWM
-#ifndef OUTPUT_DIGITAL
-#error "DEBUG_PWM cannot be used without OUTPUT_DIGITAL"
 #endif
 #endif
 
@@ -93,9 +79,6 @@ const unsigned int PortBDuet10KOutputBit = 3;
 const unsigned int PortBDuet12KOutputBit = 2;
 #ifdef DEBUG_UART
 const unsigned int uart_tx = 2;   // Pin for UART TX output
-#endif
-#ifdef DEBUG_PWM
-const unsigned int PortBPWMOutput = 2;   // Pin for PWM output
 #endif
 
 const uint8_t PortBUnusedBitMask = 0;
@@ -221,29 +204,6 @@ post(nearData.invar(); farData.invar(); offData.invar())
 	}
 	++tickCounter;
 }
-
-#ifdef DEBUG_PWM
-// Timer1 compare and overflow interrupts used to implement PWM on PB2
-#ifdef __ECV__
-void TIM1_COMPA_vect()
-writes(volatile)
-#else
-ISR(TIM1_COMPA_vect)
-#endif
-{
-    PORTB &= ~BITVAL(PortBPWMOutput);
-}
-
-#ifdef __ECV__
-void TIM1_OVF_vect()
-writes(volatile)
-#else
-ISR(TIM1_OVF_vect)
-#endif
-{
-    PORTB |= BITVAL(PortBPWMOutput);
-}
-#endif /* DEBUG_PWM */
 
 #if 0	// unused at present
 
@@ -441,20 +401,6 @@ writes(running; nearData; farData; offData; lastKickTicks; digitalOutput; volati
 		--flashesToGo;
 	}
 
-#ifdef DEBUG_PWM
-    // For debugging/tuning purposes we generate analog (PWM) output on PB2
-    // pin. PB2 has no PWM drive, so we use Timer1 with OCR1A and compare and
-    // overflow interrupts, that set the pin state as needed.
-    cli();
-    PORTB &= ~BITVAL(PortBPWMOutput);
-    TCNT1 = 0;
-    OCR1A = 0;
-    OCR1C = 255;
-    TCCR1 |= BITVAL(CTC1) | BITVAL(PWM1A) | BITVAL(CS12); // | BITVAL(CTC1) | 3<<COM1A0 | 7<<CS10;
-    TIMSK |= BITVAL(OCIE1A) | BITVAL(TOIE1);
-    sei();
-#endif /* DEBUG_PWM */
-
 	// Clear out the data and start collecting data from the phototransistor
 	nearData.init();
 	farData.init();
@@ -473,13 +419,6 @@ writes(running; nearData; farData; offData; lastKickTicks; digitalOutput; volati
 		uint16_t locOffSum = offData.sum;
 		sei();
 
-#ifdef DEBUG_PWM
-        // Set PWM value. locFarSum and locNearSum range is:
-        //   0 .. (1023 * cyclesAveragedIR)
-        OCR1A = ((locFarSum <= locOffSum && locFarSum <= locOffSum) ?
-                0 : ((locNearSum > locFarSum) ?
-                    locNearSum : locFarSum) - locOffSum) / (4 * cyclesAveragedIR);
-#endif
 #ifdef DEBUG_UART
         static bool debug_show = true;
         // Display values 4 times a second
