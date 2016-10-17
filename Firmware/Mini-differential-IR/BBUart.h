@@ -17,7 +17,6 @@
 extern "C" {
 #endif
     void TxByte(unsigned char);
-    unsigned char RxByte();
 #ifdef __cplusplus
 }
 #endif
@@ -36,19 +35,7 @@ extern "C" {
 #define BIT_CYCLES DIVIDE_ROUNDED(F_CPU,BAUD_RATE) 
 #define TXDELAYCOUNT DIVIDE_ROUNDED(BIT_CYCLES - 7, 3)
 
-#define RXSTART_CYCLES DIVIDE_ROUNDED(3*F_CPU,2*BAUD_RATE) 
-// 1st bit sampled 3*RXDELAY + 11 cycles after start bit begins
-#define RXSTARTCOUNT DIVIDE_ROUNDED(RXSTART_CYCLES - 13, 3)
-// rxbit takes 3*RXDELAY + 12 cycles
-#define RXDELAYCOUNT DIVIDE_ROUNDED(BIT_CYCLES - 13, 3)
-
-#if ( RXSTARTCOUNT > 255 )
-#error baud rate too low - must be >= 19200 @ 8Mhz, 2400 @ 1Mhz
-#endif
-
 asm(".global TXDELAY" );
-asm(".global RXSTART" );
-asm(".global RXDELAY" );
 
 // dummy function defines no code
 // hack to define absolute linker symbols using C macro calculations
@@ -59,13 +46,4 @@ asm (
     ".equ TXDELAY, %[txdcount]\n"
     ::[txdcount] "M" (TXDELAYCOUNT)
     );
-asm (
-    ".equ RXSTART, %[rxscount]\n"
-    ::[rxscount] "M" (RXSTARTCOUNT)
-    );
-asm (
-    ".equ RXDELAY, %[rxdcount]\n"
-    ::[rxdcount] "M" (RXDELAYCOUNT)
-    );
 }
-
