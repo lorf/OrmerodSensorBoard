@@ -12,7 +12,6 @@ CXX= avr-g++
 CC=	avr-gcc
 LD= avr-gcc
 CFLAGS=	-Wall -g -mmcu=$(TARGET_CPU) -Os -fpack-struct -fshort-enums
-CPPFLAGS+=	-DBAUD_RATE=115200
 CPPFLAGS+=	-DF_CPU=8000000uL
 CXXFLAGS=
 LDFLAGS=
