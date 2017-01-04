@@ -406,6 +406,10 @@ writes(running; nearData; farData; offData; lastKickTicks; digitalOutput; volati
 	farData.init();
 	offData.init();
 
+#ifdef DEBUG_UART
+    uartPrintP(PSTR("\r\n\r\nStarting\r\n"));
+#endif
+
 	running = true;											// tell interrupt handler to collect readings
 	DelayTicks(4u * cyclesAveragedIR);						// wait until we have a full set of readings
 
