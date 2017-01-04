@@ -10,7 +10,9 @@ CPPFLAGS+=	-DDEBUG_UART
 CXX= avr-g++
 CC=	avr-gcc
 LD= avr-gcc
-CFLAGS=	-Wall -g -mmcu=$(TARGET_CPU) -Os -fpack-struct -fshort-enums
+CFLAGS=		-mmcu=$(TARGET_CPU)
+CFLAGS+=	-Wall -g
+CFLAGS+=	-Os -ffunction-sections -fdata-sections -flto -fpack-struct -fshort-enums
 CPPFLAGS+=	-DF_CPU=8000000uL
 CXXFLAGS=
 LDFLAGS=
