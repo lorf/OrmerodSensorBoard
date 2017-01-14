@@ -448,6 +448,7 @@ writes(running; nearData; farData; offData; lastKickTicks; digitalOutput; volati
 		}
 		else
 		{
+
 			locNearSum = (locNearSum > locOffSum) ? locNearSum - locOffSum : 0;
 			locFarSum = (locFarSum > locOffSum) ? locFarSum - locOffSum : 0;
 			
@@ -469,6 +470,9 @@ writes(running; nearData; farData; offData; lastKickTicks; digitalOutput; volati
 			}
 			else
 			{
+#ifdef DIGITAL_ENABLE_HYSTERESIS
+                if (locNearSum * 9uL < locFarSum * 8uL)
+#endif
 				SetOutputOff();
 			}
 		}
