@@ -471,7 +471,7 @@ writes(running; nearData; farData; offData; lastKickTicks; digitalOutput; volati
 			else
 			{
 #ifdef DIGITAL_ENABLE_HYSTERESIS
-                if (locNearSum * 9uL < locFarSum * 8uL)
+                if ((uint32_t)locNearSum << 5uL < (uint32_t)locFarSum * ((1 << 5uL) - 1))
 #endif
 				SetOutputOff();
 			}
