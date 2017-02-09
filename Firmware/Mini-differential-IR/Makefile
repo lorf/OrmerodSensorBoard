@@ -1,5 +1,5 @@
 PROG?=	MiniLedSensor
-SRCS=	$(PROG).cpp
+SRCS=	BBUart.S uart_send.c uart_print.c uart_format.c $(PROG).cpp
 RESULTS+=	$(PROG).elf $(PROG).hex $(PROG).lss
 TARGET_CPU?= attiny85
 
