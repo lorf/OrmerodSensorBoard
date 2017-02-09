@@ -79,6 +79,7 @@ const unsigned int PortBDuet10KOutputBit = 3;
 const unsigned int PortBDuet12KOutputBit = 2;
 #ifdef DEBUG_UART
 const unsigned int uart_tx = 2;   // Pin for UART TX output
+uint8_t uart_print = false;
 #endif
 
 const uint8_t PortBUnusedBitMask = 0;
@@ -202,6 +203,12 @@ post(nearData.invar(); farData.invar(); offData.invar())
 			PORTB |= BITVAL(PortBFarLedBit);		// turn far LED on
 			break;
 	}
+
+#ifdef DEBUG_UART
+    // Display debug values 4 times a second
+    if (tickCounter % (interruptFreq / 30) == 0)
+        uart_print = true;
+#endif
 	++tickCounter;
 }
 
@@ -424,21 +431,15 @@ writes(running; nearData; farData; offData; lastKickTicks; digitalOutput; volati
 		sei();
 
 #ifdef DEBUG_UART
-        static bool debug_show = true;
-        // Display values 4 times a second
-        if ((GetTicks() % (interruptFreq / 4)) == 0) {
-            if (debug_show) {
-                uint16_t lns = (locNearSum > locOffSum) ? locNearSum - locOffSum : 0;
-                uint16_t lfs = (locFarSum > locOffSum) ? locFarSum - locOffSum : 0;
+        if (uart_print) {
+            uint16_t ns = (locNearSum > locOffSum) ? locNearSum - locOffSum : 0;
+            uint16_t fs = (locFarSum > locOffSum) ? locFarSum - locOffSum : 0;
+            int16_t diff = ns - fs;
 
-                uartFormatP(PSTR("N=%u, F=%u, O=%u.  (%u >= %u && %u > %u) == %S\r\n"),
-                        locNearSum, locFarSum, locOffSum,
-                        lfs, farThreshold, lns, lfs,
-                        (lfs >= farThreshold && lns > lfs) ? PSTR("true") : PSTR("false"));
-            }
-            debug_show = false;
-        } else {
-            debug_show = true;
+            uartFormatP(PSTR("N=%u, F=%u, O=%u, t=%u, D=%s%u\r\n"),
+                    locNearSum, locFarSum, locOffSum, farThreshold, diff < 0 ? "-" : "",
+                    diff < 0 ? -diff : diff);
+            uart_print = false;
         }
 #endif
 
