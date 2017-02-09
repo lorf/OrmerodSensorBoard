@@ -46,6 +46,9 @@
 #ifdef DEBUG_UART
 #include "softuart.h"
 #endif
+#ifdef FILTER
+#include <filter.h>
+#endif
 
 #ifdef __ECV__
 #pragma ECV verifyincludefiles
@@ -104,6 +107,9 @@ const uint16_t saturatedThreshold = 870u * cyclesAveragedIR; // minimum reading 
 const uint16_t kickFreq = 16;
 const uint16_t kickIntervalTicks = interruptFreq/kickFreq;
 
+#ifdef FILTER
+filter nearData(cyclesAveragedIR), farData(cyclesAveragedIR), offData(cyclesAveragedIR);
+#else
 // IR variables
 typedef uint8_t invariant(value < cyclesAveragedIR) irIndex_t;
 
@@ -140,6 +146,7 @@ struct IrData
 };
 
 IrData nearData, farData, offData;
+#endif  // !FILTER
 	
 // General variables
 volatile uint16_t tickCounter = 0;					// counts system ticks, lower 2 bits also used for ADC/LED state
@@ -173,6 +180,10 @@ post(nearData.invar(); farData.invar(); offData.invar())
 	{
 		case 0:
 			// Far LED is on, we just did no reading, we are doing a far reading now and an off reading next
+			if (running)
+			{
+				offData.addReading(adcVal);
+			}
 			PORTB &= ~BITVAL(PortBFarLedBit);		// turn far LED off
 			break;
 		
@@ -391,7 +402,13 @@ writes(running; nearData; farData; offData; lastKickTicks; digitalOutput; volati
 	// Readings have been collected into all three of nearData, farData, and offData.
 	// We are looking for a pullup resistor of no more than 75K on the output to indicate that we should use a digital output.
 	// DC 2014-08-04 we now look for no more than 160K, because on the Arduino Due the pullups are in the range 50K-150K.
+#ifdef FILTER
+    cli();
+	digitalOutput = offData.get() + nearData.get() + farData.get() >= (3600UL * cyclesAveragedIR * 1024UL * 3u)/(160000UL + 3600UL);
+    sei();
+#else
 	digitalOutput = offData.sum + nearData.sum + farData.sum >= (3600UL * cyclesAveragedIR * 1024UL * 3u)/(160000UL + 3600UL);
+#endif // !FILTER
 #endif /* !OUTPUT_DIGITAL */
 	
 	// Change back to normal operation mode
@@ -425,9 +442,15 @@ writes(running; nearData; farData; offData; lastKickTicks; digitalOutput; volati
 	keep(nearData.invar(); farData.invar(); offData.invar())
 	{
 		cli();
+#ifdef FILTER
+		uint16_t locNearSum = nearData.get();
+		uint16_t locFarSum = farData.get();
+		uint16_t locOffSum = offData.get();
+#else
 		uint16_t locNearSum = nearData.sum;
 		uint16_t locFarSum = farData.sum;
 		uint16_t locOffSum = offData.sum;
+#endif  // !FILTER
 		sei();
 
 #ifdef DEBUG_UART
@@ -509,6 +532,7 @@ writes(lastKickTicks)
 	return 0;												// to keep gcc happy
 }
 
+#ifndef FILTER
 // Initialize the IR data structure
 void IrData::init()
 {
@@ -523,5 +547,6 @@ void IrData::init()
 	index = 0;
 	sum = 0;
 }
+#endif // !FILTER
 
 // End
