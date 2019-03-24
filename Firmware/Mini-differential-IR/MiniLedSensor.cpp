@@ -65,7 +65,7 @@ extern void sei();
 // Pin assignments:
 // PB0/MOSI			far LED drive, active high
 // PB1/MISO			near LED drive, active high
-// PB2/ADC1/SCK		output to Duet via 12K resistor
+// PB2/ADC1/SCK		output to Duet via 12K resistor, UART TX if DEBUG_UART is defined
 // PB3/ADC3			output to Duet via 10K resistor
 // PB4/ADC2			input from phototransistor
 // PB5/ADC0/RESET	not available, used for programming
@@ -216,8 +216,8 @@ post(nearData.invar(); farData.invar(); offData.invar())
 	}
 
 #ifdef DEBUG_UART
-    // Display debug values 4 times a second
-    if (tickCounter % (interruptFreq / 30) == 0)
+    // Display debug values 5 times a second
+    if (tickCounter % (interruptFreq / 5) == 0)
         uart_print = true;
 #endif
 	++tickCounter;
